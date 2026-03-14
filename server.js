@@ -155,3 +155,26 @@ app.get("/auth/callback", async (req, res) => {
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
+
+
+// --- AJOUTEZ CECI JUSTE AVANT app.listen ---
+
+// 1. On sert d'abord les fichiers statiques (CSS, JS, images)
+app.use(express.static(PUBLIC_DIR));
+
+// 2. Si on demande la racine, on envoie l'index.html
+app.get('/', (req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
+});
+
+// 3. LE SAUVEUR : Si une page n'est pas trouvée (ou si vous êtes perdu), 
+// on renvoie automatiquement vers l'accueil au lieu d'afficher une erreur.
+app.get('*', (req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
+});
+
+// -------------------------------------------
+app.listen(PORT, () => {
+  console.log(`🚀 TikHub est prêt !`);
+});
+
