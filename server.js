@@ -149,3 +149,9 @@ app.get("/auth/callback", async (req, res) => {
       expires_at:    Date.now() + expires_in * 1000,
       display_name:  user.display_name  || "Utilisateur",
       avatar_
+
+
+// Cette route "fourre-tout" redirige n'importe quelle erreur vers votre site
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
