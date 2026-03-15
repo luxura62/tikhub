@@ -27,7 +27,8 @@ app.get('/auth/tiktok', (req, res) => {
   req.session.state = state;
 
   const redirect_uri = encodeURIComponent(REDIRECT_URI);
-  const oauthUrl = `https://www.tiktok.com/v2/auth/authorize/?client_key=${TIKTOK_CLIENT_KEY}&scope=user.info.basic,video.upload,video.publish&response_type=code&redirect_uri=${redirect_uri}&state=${state}`;
+  const TIKTOK_CLIENT_KEY = 'sbawbd1pr0vxz33uyx';
+const oauthUrl = `https://www.tiktok.com/v2/auth/authorize/?client_key=${TIKTOK_CLIENT_KEY}&scope=user.info.basic&response_type=code&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&state=${state}`;
 
   res.redirect(oauthUrl);
 });
