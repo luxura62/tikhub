@@ -1,10 +1,9 @@
-// server.js - Tikshub OAuth TikTok (sans node-fetch)
+// server.js - Tikshub OAuth TikTok complet sans node-fetch
 
 const express = require('express');
 const session = require('express-session');
 const crypto = require('crypto');
 const https = require('https');
-const querystring = require('querystring');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -22,8 +21,8 @@ app.use(session({
   cookie: { secure: false } // mettre true si HTTPS
 }));
 
-// --- ROUTE LOGIN ---
-app.get('/login', (req, res) => {
+// --- ROUTE LOGIN (OAuth TikTok) ---
+app.get('/auth/tiktok', (req, res) => {
   const state = crypto.randomBytes(16).toString('hex');
   req.session.state = state;
 
@@ -42,8 +41,8 @@ app.get('/auth/callback', (req, res) => {
 
   // --- ÉCHANGE DU CODE CONTRE ACCESS_TOKEN ---
   const postData = JSON.stringify({
-    client_key: TIKTOK_CLIENT_KEY,
-    client_secret: TIKTOK_CLIENT_SECRET,
+    client_key: sbawbd1pr0vxz33uyx,
+    client_secret: hj2dGstMTC1ViWecJMYttbtQ1f0sedVr,
     code: code,
     grant_type: 'authorization_code',
     redirect_uri: REDIRECT_URI
@@ -79,7 +78,7 @@ app.get('/auth/callback', (req, res) => {
     });
   });
 
-  request.on('error', (err) => {
+  request.on('error', err => {
     console.error(err);
     res.status(500).send('Erreur serveur lors de la requête OAuth');
   });
@@ -90,7 +89,7 @@ app.get('/auth/callback', (req, res) => {
 
 // --- ROUTE TEST ---
 app.get('/', (req, res) => {
-  res.send('Tikshub server is running. Go to /login to start OAuth.');
+  res.send('Tikshub server is running. Go to /auth/tiktok to start OAuth.');
 });
 
 // --- START SERVER ---
