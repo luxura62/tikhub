@@ -10,8 +10,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // --- CONFIGURATION TIKTOK ---
-const TIKTOK_CLIENT_KEY = 'TON_CLIENT_KEY_ICI';
-const TIKTOK_CLIENT_SECRET = 'TON_CLIENT_SECRET_ICI';
+const TIKTOK_CLIENT_KEY = 'sbawbd1pr0vxz33uyx';
+const TIKTOK_CLIENT_SECRET = 'hj2dGstMTC1ViWecJMYttbtQ1f0sedVr';
 const REDIRECT_URI = 'https://tikshub.fr/auth/callback'; // ton vrai domaine
 
 // --- SESSION ---
