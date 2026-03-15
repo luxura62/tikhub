@@ -1,75 +1,91 @@
-// server.js - Tikshub OAuth TikTok
+// server.js - Tikshub OAuth TikTok (sans node-fetch)
 
-require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
 const crypto = require('crypto');
-const fetch = require('node-fetch');
+const https = require('https');
+const querystring = require('querystring');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// --- CONFIGURATION TIKTOK ---
+const TIKTOK_CLIENT_KEY = 'TON_CLIENT_KEY_ICI';
+const TIKTOK_CLIENT_SECRET = 'TON_CLIENT_SECRET_ICI';
+const REDIRECT_URI = 'https://tikshub.fr/auth/callback'; // ton vrai domaine
+
 // --- SESSION ---
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'tikhub_secret',
+  secret: 'tikhub_secret', // change pour un secret aléatoire
   resave: false,
   saveUninitialized: true,
   cookie: { secure: false } // mettre true si HTTPS
 }));
 
 // --- ROUTE LOGIN ---
-// Génère un state aléatoire et redirige vers TikTok OAuth
 app.get('/login', (req, res) => {
   const state = crypto.randomBytes(16).toString('hex');
   req.session.state = state;
 
-  const redirect_uri = encodeURIComponent(process.env.REDIRECT_URI);
-  const oauthUrl = `https://www.tiktok.com/v2/auth/authorize/?client_key=${process.env.TIKTOK_CLIENT_KEY}&scope=user.info.basic,video.upload,video.publish&response_type=code&redirect_uri=${redirect_uri}&state=${state}`;
+  const redirect_uri = encodeURIComponent(REDIRECT_URI);
+  const oauthUrl = `https://www.tiktok.com/v2/auth/authorize/?client_key=${TIKTOK_CLIENT_KEY}&scope=user.info.basic,video.upload,video.publish&response_type=code&redirect_uri=${redirect_uri}&state=${state}`;
 
   res.redirect(oauthUrl);
 });
 
 // --- ROUTE CALLBACK ---
-// Vérifie le state, récupère le code et échange contre token
-app.get('/auth/callback', async (req, res) => {
+app.get('/auth/callback', (req, res) => {
   const { code, state } = req.query;
 
-  if (!code || !state) {
-    return res.status(400).send('Missing code or state');
-  }
+  if (!code || !state) return res.status(400).send('Missing code or state');
+  if (state !== req.session.state) return res.status(400).send('state_mismatch');
 
-  if (state !== req.session.state) {
-    return res.status(400).send('state_mismatch');
-  }
+  // --- ÉCHANGE DU CODE CONTRE ACCESS_TOKEN ---
+  const postData = JSON.stringify({
+    client_key: TIKTOK_CLIENT_KEY,
+    client_secret: TIKTOK_CLIENT_SECRET,
+    code: code,
+    grant_type: 'authorization_code',
+    redirect_uri: REDIRECT_URI
+  });
 
-  // --- Échange du code contre access_token ---
-  try {
-    const response = await fetch('https://open.tiktokapis.com/v2/oauth/token/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        client_key: process.env.TIKTOK_CLIENT_KEY,
-        client_secret: process.env.TIKTOK_CLIENT_SECRET,
-        code: code,
-        grant_type: 'authorization_code',
-        redirect_uri: process.env.REDIRECT_URI
-      })
-    });
-
-    const data = await response.json();
-
-    if (data.error) {
-      return res.status(400).send(`OAuth error: ${data.message}`);
+  const options = {
+    hostname: 'open.tiktokapis.com',
+    path: '/v2/oauth/token/',
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(postData)
     }
+  };
 
-    // Stocke token en session pour tests
-    req.session.access_token = data.data.access_token;
+  const request = https.request(options, (response) => {
+    let data = '';
+    response.on('data', chunk => data += chunk);
+    response.on('end', () => {
+      try {
+        const json = JSON.parse(data);
+        if (json.error) {
+          return res.status(400).send(`OAuth error: ${json.message}`);
+        }
 
-    res.send(`OAuth réussi ! Access token récupéré : ${data.data.access_token}`);
-  } catch (err) {
+        // Stocke token en session pour tests
+        req.session.access_token = json.data.access_token;
+        res.send(`OAuth réussi ! Access token récupéré : ${json.data.access_token}`);
+      } catch (err) {
+        console.error(err);
+        res.status(500).send('Erreur serveur lors du parsing de la réponse');
+      }
+    });
+  });
+
+  request.on('error', (err) => {
     console.error(err);
-    res.status(500).send('Erreur serveur lors de l\'échange du token');
-  }
+    res.status(500).send('Erreur serveur lors de la requête OAuth');
+  });
+
+  request.write(postData);
+  request.end();
 });
 
 // --- ROUTE TEST ---
