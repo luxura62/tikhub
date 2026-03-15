@@ -6,7 +6,6 @@ const axios = require("axios");
 const cron = require("node-cron");
 const { v4: uuidv4 } = require("uuid");
 const fs = require("fs");
-const fse = require("fs-extra");
 const path = require("path");
 
 const app = express();
@@ -18,8 +17,8 @@ const UPLOADS_DIR = path.join(__dirname, "uploads");
 const DATA_DIR = path.join(__dirname, "data");
 const DB_FILE = path.join(DATA_DIR, "db.json");
 
-fse.ensureDirSync(DATA_DIR);
-fse.ensureDirSync(UPLOADS_DIR);
+fs.mkdirSync(DATA_DIR, {recursive: true});
+fs.mkdirSync(UPLOADS_DIR, {recursive: true});
 
 // --- MIDDLEWARES ---
 app.use(express.json());
