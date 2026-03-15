@@ -1,69 +1,403 @@
 require("dotenv").config();
-const express = require("express");
-const session = require("express-session");
-const multer = require("multer");
-const axios = require("axios");
-const cron = require("node-cron");
+const express   = require("express");
+const session   = require("express-session");
+const multer    = require("multer");
+const axios     = require("axios");
+const cron      = require("node-cron");
 const { v4: uuidv4 } = require("uuid");
-const fs = require("fs");
-const path = require("path");
+const fs        = require("fs");
+const path      = require("path");
 
-const app = express();
+const app  = express();
 const PORT = process.env.PORT || 3000;
 
-// --- CONFIGURATION ---
-const PUBLIC_DIR = path.join(__dirname, "public");
+// ─── CONFIG ──────────────────────────────────────────────────
+const CLIENT_KEY     = process.env.TIKTOK_CLIENT_KEY    || "";
+const CLIENT_SECRET  = process.env.TIKTOK_CLIENT_SECRET || "";
+const REDIRECT_URI   = process.env.REDIRECT_URI         || `http://localhost:${PORT}/auth/callback`;
+const SESSION_SECRET = process.env.SESSION_SECRET       || "tikhub_secret_change_me";
+
+const DB_FILE     = path.join(__dirname, "data", "db.json");
+const TOKEN_FILE  = path.join(__dirname, "data", "token.json");
 const UPLOADS_DIR = path.join(__dirname, "uploads");
-const DATA_DIR = path.join(__dirname, "data");
-const DB_FILE = path.join(DATA_DIR, "db.json");
 
-fs.mkdirSync(DATA_DIR, {recursive: true});
-fs.mkdirSync(UPLOADS_DIR, {recursive: true});
+// Créer les dossiers si inexistants
+fs.mkdirSync(path.join(__dirname, "data"), { recursive: true });
+fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
-// --- MIDDLEWARES ---
+// ─── DB ──────────────────────────────────────────────────────
+function readDB() {
+  try { return JSON.parse(fs.readFileSync(DB_FILE, "utf8")); }
+  catch { return { videos: [] }; }
+}
+function writeDB(d) { fs.writeFileSync(DB_FILE, JSON.stringify(d, null, 2)); }
+function getVideos() { return readDB().videos || []; }
+function saveVideo(v) {
+  const db = readDB();
+  db.videos = db.videos.filter(x => x.id !== v.id);
+  db.videos.unshift(v);
+  writeDB(db);
+}
+function deleteVideo(id) {
+  const db  = readDB();
+  const vid = db.videos.find(v => v.id === id);
+  if (vid && vid.filepath && fs.existsSync(vid.filepath)) fs.unlinkSync(vid.filepath);
+  db.videos = db.videos.filter(v => v.id !== id);
+  writeDB(db);
+}
+
+// ─── TOKEN ───────────────────────────────────────────────────
+function saveToken(t) { fs.writeFileSync(TOKEN_FILE, JSON.stringify(t, null, 2)); }
+function loadToken()  {
+  try { return JSON.parse(fs.readFileSync(TOKEN_FILE, "utf8")); }
+  catch { return null; }
+}
+
+async function getValidToken() {
+  const t = loadToken();
+  if (!t) return null;
+  if (t.expires_at < Date.now() + 3600000) {
+    try {
+      const res = await axios.post(
+        "https://open.tiktokapis.com/v2/oauth/token/",
+        new URLSearchParams({
+          client_key: CLIENT_KEY,
+          client_secret: CLIENT_SECRET,
+          grant_type: "refresh_token",
+          refresh_token: t.refresh_token,
+        }),
+        { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
+      );
+      const nt = {
+        ...t,
+        access_token: res.data.access_token,
+        refresh_token: res.data.refresh_token || t.refresh_token,
+        expires_at: Date.now() + res.data.expires_in * 1000,
+      };
+      saveToken(nt);
+      return nt.access_token;
+    } catch { return null; }
+  }
+  return t.access_token;
+}
+
+// ─── MULTER ──────────────────────────────────────────────────
+const storage = multer.diskStorage({
+  destination: (_, __, cb) => cb(null, UPLOADS_DIR),
+  filename:    (_, f, cb)  => cb(null, uuidv4() + path.extname(f.originalname)),
+});
+const upload = multer({
+  storage,
+  limits: { fileSize: 500 * 1024 * 1024 },
+  fileFilter: (_, f, cb) =>
+    cb(null, ["video/mp4","video/webm","video/quicktime","video/x-msvideo","video/avi"].includes(f.mimetype)),
+});
+
+// ─── MIDDLEWARE ──────────────────────────────────────────────
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(PUBLIC_DIR)); // Sert le CSS/JS/Images
-
+app.use(express.static(path.join(__dirname, "public")));
 app.use(session({
-    secret: process.env.SESSION_SECRET || "tikhub_secret_key",
-    resave: false,
-    saveUninitialized: false,
-    cookie: { secure: false, maxAge: 30 * 24 * 3600 * 1000 }
+  secret: SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: { secure: false, maxAge: 30 * 24 * 3600 * 1000 },
 }));
 
-// --- ROUTES DU SITE (IMPORTANT) ---
-
-// Affiche le site sur l'adresse principale
-app.get("/", (req, res) => {
-    res.sendFile(path.join(PUBLIC_DIR, "index.html"));
+let cachedToken = null;
+app.use((req, _, next) => {
+  if (req.session && req.session.tiktok && req.session.tiktok.access_token) {
+    cachedToken = req.session.tiktok.access_token;
+  }
+  next();
 });
 
-// --- STATISTIQUES (API) ---
-app.get("/api/stats", (req, res) => {
-    try {
-        const db = JSON.parse(fs.readFileSync(DB_FILE, "utf8"));
-        const videos = db.videos || [];
-        res.json({
-            scheduled: videos.filter(v => v.status === "scheduled").length,
-            published: videos.filter(v => v.status === "published").length,
-            failed:    videos.filter(v => v.status === "failed").length,
-            total:     videos.length
-        });
-    } catch (e) {
-        res.json({ scheduled: 0, published: 0, failed: 0, total: 0 });
+// ─── AUTH ─────────────────────────────────────────────────────
+app.get("/auth/tiktok", (req, res) => {
+  const state = uuidv4();
+  req.session.oauthState = state;
+  const params = new URLSearchParams({
+    client_key: CLIENT_KEY,
+    scope: "user.info.basic,video.upload,video.publish",
+    response_type: "code",
+    redirect_uri: REDIRECT_URI,
+    state,
+  });
+  res.redirect(`https://www.tiktok.com/v2/auth/authorize/?${params}`);
+});
+
+app.get("/auth/callback", async (req, res) => {
+  const { code, state, error } = req.query;
+  if (error)  return res.redirect("/?error=" + encodeURIComponent(error));
+  if (!code)  return res.redirect("/?error=no_code");
+  if (state !== req.session.oauthState) return res.redirect("/?error=state_mismatch");
+  delete req.session.oauthState;
+
+  try {
+    const tokenRes = await axios.post(
+      "https://open.tiktokapis.com/v2/oauth/token/",
+      new URLSearchParams({
+        client_key: CLIENT_KEY,
+        client_secret: CLIENT_SECRET,
+        code,
+        grant_type: "authorization_code",
+        redirect_uri: REDIRECT_URI,
+      }),
+      { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
+    );
+    const { access_token, refresh_token, open_id, expires_in } = tokenRes.data;
+
+    const userRes = await axios.get(
+      "https://open.tiktokapis.com/v2/user/info/?fields=display_name,avatar_url,follower_count,video_count",
+      { headers: { Authorization: `Bearer ${access_token}` } }
+    );
+    const user = (userRes.data.data && userRes.data.data.user) || {};
+
+    const tokenData = {
+      access_token,
+      refresh_token,
+      open_id,
+      expires_at:     Date.now() + expires_in * 1000,
+      display_name:   user.display_name   || "Utilisateur",
+      avatar_url:     user.avatar_url     || "",
+      follower_count: user.follower_count || 0,
+      video_count:    user.video_count    || 0,
+    };
+    saveToken(tokenData);
+    cachedToken = access_token;
+    req.session.tiktok = tokenData;
+    res.redirect("/?connected=1");
+  } catch (err) {
+    console.error("OAuth error:", err.response ? err.response.data : err.message);
+    res.redirect("/?error=token_failed");
+  }
+});
+
+app.post("/auth/logout", (req, res) => {
+  req.session.destroy();
+  cachedToken = null;
+  if (fs.existsSync(TOKEN_FILE)) fs.unlinkSync(TOKEN_FILE);
+  res.json({ ok: true });
+});
+
+// ─── API ──────────────────────────────────────────────────────
+app.get("/api/status", (req, res) => {
+  const token = loadToken();
+  if (token) {
+    res.json({
+      connected:      true,
+      display_name:   token.display_name,
+      avatar_url:     token.avatar_url,
+      follower_count: token.follower_count,
+      video_count:    token.video_count,
+    });
+  } else {
+    res.json({ connected: false });
+  }
+});
+
+app.get("/api/videos", (_, res) => {
+  const videos = getVideos().sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt));
+  res.json({ videos });
+});
+
+app.post("/api/videos", upload.single("video"), (req, res) => {
+  if (!loadToken()) return res.status(401).json({ error: "Non connecté" });
+  if (!req.file)    return res.status(400).json({ error: "Fichier manquant" });
+  const { title, caption, scheduledAt, repeat } = req.body;
+  if (!scheduledAt) return res.status(400).json({ error: "Date requise" });
+  const video = {
+    id:          uuidv4(),
+    title:       title || req.file.originalname,
+    caption:     caption || "#fyp #tiktok",
+    scheduledAt: new Date(scheduledAt).toISOString(),
+    repeat:      repeat || "none",
+    status:      "scheduled",
+    filename:    req.file.filename,
+    filepath:    req.file.path,
+    size:        req.file.size,
+    mimetype:    req.file.mimetype,
+    createdAt:   new Date().toISOString(),
+    publishedAt: null,
+    tiktokId:    null,
+    retries:     0,
+    error:       null,
+  };
+  saveVideo(video);
+  res.json({ ok: true, video });
+});
+
+app.put("/api/videos/:id", (req, res) => {
+  const videos = getVideos();
+  const video  = videos.find(v => v.id === req.params.id);
+  if (!video || video.status !== "scheduled") return res.status(400).json({ error: "Non modifiable" });
+  const { title, caption, scheduledAt, repeat } = req.body;
+  if (title)       video.title       = title;
+  if (caption)     video.caption     = caption;
+  if (scheduledAt) video.scheduledAt = new Date(scheduledAt).toISOString();
+  if (repeat)      video.repeat      = repeat;
+  saveVideo(video);
+  res.json({ ok: true, video });
+});
+
+app.delete("/api/videos/:id", (req, res) => {
+  const video = getVideos().find(v => v.id === req.params.id);
+  if (!video) return res.status(404).json({ error: "Introuvable" });
+  if (video.status === "publishing") return res.status(400).json({ error: "En cours de publication" });
+  deleteVideo(req.params.id);
+  res.json({ ok: true });
+});
+
+app.post("/api/videos/:id/publish", async (req, res) => {
+  if (!loadToken()) return res.status(401).json({ error: "Non connecté" });
+  const video = getVideos().find(v => v.id === req.params.id);
+  if (!video) return res.status(404).json({ error: "Introuvable" });
+  res.json({ ok: true, message: "Publication démarrée" });
+  await doPublish(video);
+});
+
+app.post("/api/videos/:id/retry", async (req, res) => {
+  if (!loadToken()) return res.status(401).json({ error: "Non connecté" });
+  const video = getVideos().find(v => v.id === req.params.id);
+  if (!video || video.status !== "failed") return res.status(400).json({ error: "Non réessayable" });
+  video.status = "scheduled";
+  video.error  = null;
+  saveVideo(video);
+  res.json({ ok: true });
+});
+
+app.get("/api/stats", (_, res) => {
+  const videos = getVideos();
+  res.json({
+    scheduled: videos.filter(v => v.status === "scheduled").length,
+    published: videos.filter(v => v.status === "published").length,
+    failed:    videos.filter(v => v.status === "failed").length,
+    total:     videos.length,
+  });
+});
+
+// ─── PUBLICATION ──────────────────────────────────────────────
+async function doPublish(video) {
+  const db  = readDB();
+  const idx = db.videos.findIndex(v => v.id === video.id);
+  if (idx < 0) return;
+
+  db.videos[idx].status = "publishing";
+  writeDB(db);
+
+  try {
+    const accessToken = await getValidToken() || cachedToken;
+    if (!accessToken) throw new Error("Token invalide — reconnecte-toi");
+
+    if (!fs.existsSync(video.filepath)) throw new Error("Fichier introuvable");
+
+    const fileSize = fs.statSync(video.filepath).size;
+
+    const initRes = await axios.post(
+      "https://open.tiktokapis.com/v2/post/video/init/",
+      {
+        post_info: {
+          title:                    video.title.substring(0, 150),
+          privacy_level:            "SELF_ONLY",
+          disable_duet:             false,
+          disable_comment:          false,
+          disable_stitch:           false,
+          video_cover_timestamp_ms: 1000,
+        },
+        source_info: {
+          source:            "FILE_UPLOAD",
+          video_size:        fileSize,
+          chunk_size:        fileSize,
+          total_chunk_count: 1,
+        },
+      },
+      {
+        headers: {
+          Authorization:  `Bearer ${accessToken}`,
+          "Content-Type": "application/json; charset=UTF-8",
+        },
+        timeout: 30000,
+      }
+    );
+
+    if (!initRes.data || !initRes.data.data || !initRes.data.data.upload_url) {
+      throw new Error((initRes.data && initRes.data.error && initRes.data.error.message) || "Échec init TikTok");
     }
+
+    const { upload_url, publish_id } = initRes.data.data;
+    const fileBuffer = fs.readFileSync(video.filepath);
+
+    await axios.put(upload_url, fileBuffer, {
+      headers: {
+        "Content-Type":   "video/mp4",
+        "Content-Length": fileSize,
+        "Content-Range":  `bytes 0-${fileSize - 1}/${fileSize}`,
+      },
+      maxBodyLength:    Infinity,
+      maxContentLength: Infinity,
+      timeout:          600000,
+    });
+
+    const dbNow = readDB();
+    const i2    = dbNow.videos.findIndex(v => v.id === video.id);
+    if (i2 >= 0) {
+      dbNow.videos[i2].status      = "published";
+      dbNow.videos[i2].publishedAt = new Date().toISOString();
+      dbNow.videos[i2].tiktokId    = publish_id;
+      dbNow.videos[i2].error       = null;
+
+      if (dbNow.videos[i2].repeat !== "none") {
+        const orig     = dbNow.videos[i2];
+        const nextDate = new Date(orig.scheduledAt);
+        if (orig.repeat === "daily")  nextDate.setDate(nextDate.getDate() + 1);
+        if (orig.repeat === "weekly") nextDate.setDate(nextDate.getDate() + 7);
+        dbNow.videos.push({
+          ...orig,
+          id:          uuidv4(),
+          status:      "scheduled",
+          scheduledAt: nextDate.toISOString(),
+          publishedAt: null,
+          tiktokId:    null,
+          error:       null,
+          retries:     0,
+          createdAt:   new Date().toISOString(),
+        });
+      }
+      writeDB(dbNow);
+    }
+
+    if (fs.existsSync(video.filepath)) fs.unlinkSync(video.filepath);
+    console.log("✅ Publié : " + video.title);
+
+  } catch (err) {
+    console.error("❌ Échec :", err.response ? err.response.data : err.message);
+    const dbNow = readDB();
+    const i2    = dbNow.videos.findIndex(v => v.id === video.id);
+    if (i2 >= 0) {
+      dbNow.videos[i2].retries = (dbNow.videos[i2].retries || 0) + 1;
+      dbNow.videos[i2].status  = "failed";
+      dbNow.videos[i2].error   = (err.response && err.response.data && err.response.data.error && err.response.data.error.message) || err.message || "Erreur inconnue";
+      writeDB(dbNow);
+    }
+  }
+}
+
+// ─── CRON ─────────────────────────────────────────────────────
+cron.schedule("* * * * *", async () => {
+  const now = Date.now();
+  const due = getVideos().filter(
+    v => v.status === "scheduled" && new Date(v.scheduledAt).getTime() <= now
+  );
+  for (const v of due) {
+    console.log("⏰ Publication auto : " + v.title);
+    await doPublish(v);
+  }
 });
 
-// --- LE RESTE DE VOTRE LOGIQUE (Auth TikTok, Upload, Cron) ---
-// (Gardez vos fonctions doPublish et vos routes /auth ici)
-
-// --- REDIRECTION DE SÉCURITÉ ---
-// Si l'utilisateur tape une mauvaise adresse, on le ramène à l'accueil
-app.get("*", (req, res) => {
-    res.sendFile(path.join(PUBLIC_DIR, "index.html"));
-});
-
+// ─── START ────────────────────────────────────────────────────
 app.listen(PORT, () => {
-    console.log(`🚀 TikHub opérationnel sur le port ${PORT}`);
+  console.log("🚀 TikHub opérationnel sur le port " + PORT);
+  if (!CLIENT_KEY || !CLIENT_SECRET) {
+    console.warn("⚠️  Variables TIKTOK_CLIENT_KEY / SECRET manquantes !");
+  }
 });
