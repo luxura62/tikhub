@@ -42,7 +42,7 @@ app.get('/auth/callback', (req, res) => {
 
   // --- ÉCHANGE DU CODE CONTRE ACCESS_TOKEN ---
   const postData = JSON.stringify({
-    client_key: sbawbd1pr0vxz33uyx,
+    client_key: 'sbawbd1pr0vxz33uyx',
     client_secret: hj2dGstMTC1ViWecJMYttbtQ1f0sedVr,
     code: code,
     grant_type: 'authorization_code',
