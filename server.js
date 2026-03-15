@@ -6,16 +6,16 @@ const crypto = require('crypto');
 const https = require('https');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 
 // --- CONFIGURATION TIKTOK ---
 const TIKTOK_CLIENT_KEY = 'sbawbd1pr0vxz33uyx';
 const TIKTOK_CLIENT_SECRET = 'hj2dGstMTC1ViWecJMYttbtQ1f0sedVr';
-const REDIRECT_URI = 'https://tikshub.fr/auth/callback'; // ton vrai domaine
+const REDIRECT_URI = 'https://tikshub.fr/auth/callback'; // ton domaine exact
 
 // --- SESSION ---
 app.use(session({
-  secret: 'tikhub_secret', // change pour un secret aléatoire
+  secret: 'tikhub_secret_aleatoire', // change pour un secret aléatoire
   resave: false,
   saveUninitialized: true,
   cookie: { secure: false } // mettre true si HTTPS
@@ -27,8 +27,7 @@ app.get('/auth/tiktok', (req, res) => {
   req.session.state = state;
 
   const redirect_uri = encodeURIComponent(REDIRECT_URI);
-  const TIKTOK_CLIENT_KEY = 'sbawbd1pr0vxz33uyx';
-const oauthUrl = `https://www.tiktok.com/v2/auth/authorize/?client_key=${TIKTOK_CLIENT_KEY}&scope=user.info.basic&response_type=code&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&state=${state}`;
+  const oauthUrl = `https://www.tiktok.com/v2/auth/authorize/?client_key=${TIKTOK_CLIENT_KEY}&scope=user.info.basic,video.upload,video.publish&response_type=code&redirect_uri=${redirect_uri}&state=${state}`;
 
   res.redirect(oauthUrl);
 });
@@ -40,10 +39,9 @@ app.get('/auth/callback', (req, res) => {
   if (!code || !state) return res.status(400).send('Missing code or state');
   if (state !== req.session.state) return res.status(400).send('state_mismatch');
 
-  // --- ÉCHANGE DU CODE CONTRE ACCESS_TOKEN ---
   const postData = JSON.stringify({
-    client_key: 'sbawbd1pr0vxz33uyx',
-    client_secret: 'hj2dGstMTC1ViWecJMYttbtQ1f0sedVr',
+    client_key: TIKTOK_CLIENT_KEY,
+    client_secret: TIKTOK_CLIENT_SECRET,
     code: code,
     grant_type: 'authorization_code',
     redirect_uri: REDIRECT_URI
@@ -65,16 +63,20 @@ app.get('/auth/callback', (req, res) => {
     response.on('end', () => {
       try {
         const json = JSON.parse(data);
-        if (json.error) {
-          return res.status(400).send(`OAuth error: ${json.message}`);
+
+        if (json.code && json.code !== 0) {
+          return res.status(400).send(`OAuth error: ${json.message || 'unknown error'}`);
         }
 
-        // Stocke token en session pour tests
+        if (!json.data || !json.data.access_token) {
+          return res.status(400).send(`OAuth error: access_token missing`);
+        }
+
         req.session.access_token = json.data.access_token;
         res.send(`OAuth réussi ! Access token récupéré : ${json.data.access_token}`);
       } catch (err) {
         console.error(err);
-        res.status(500).send('Erreur serveur lors du parsing de la réponse');
+        res.status(500).send('Erreur serveur lors du parsing de la réponse TikTok');
       }
     });
   });
