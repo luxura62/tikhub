@@ -23,9 +23,9 @@ router.get('/login', (req, res) => {
 router.get('/callback', async (req, res) => {
   const { code, state, error } = req.query;
 
-  if (error || state !== req.session.oauth_state) {
-    return res.redirect(process.env.FRONTEND_URL + '?error=auth_failed');
-  }
+  if (error) {
+  return res.redirect(process.env.FRONTEND_URL + '?error=auth_failed');
+}
 
   try {
     const tokenResponse = await axios.post(
