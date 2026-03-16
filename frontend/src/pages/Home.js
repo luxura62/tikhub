@@ -1,16 +1,6 @@
 import React from 'react';
 
 export default function Home() {
-  const handleLogin = () => {
-  // En dev, on pointe vers le port 8080 du serveur
-  // En prod, une URL relative '/auth/login' suffira si c'est le même domaine
-  const backendUrl = process.env.NODE_ENV === 'production' 
-    ? '/auth/login' 
-    : 'http://localhost:8080/auth/login';
-    
-  window.location.href = backendUrl;
-};
-
   return (
     <div style={{
       minHeight: '100vh',
@@ -22,7 +12,6 @@ export default function Home() {
       position: 'relative',
       overflow: 'hidden'
     }}>
-      {/* Background glow */}
       <div style={{
         position: 'absolute',
         top: '20%', left: '50%',
@@ -39,21 +28,21 @@ export default function Home() {
         pointerEvents: 'none'
       }} />
 
-      {/* Content */}
       <div style={{ textAlign: 'center', maxWidth: '580px', position: 'relative', zIndex: 1 }}>
 
-        {/* Badge */}
         <div className="fade-up" style={{
           display: 'inline-flex', alignItems: 'center', gap: '8px',
           background: 'rgba(255,45,85,0.1)', border: '1px solid rgba(255,45,85,0.2)',
           borderRadius: '20px', padding: '6px 16px', marginBottom: '32px',
           fontSize: '13px', color: 'var(--pink)', fontWeight: '500'
         }}>
-          <span style={{ animation: 'pulse 2s infinite', display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: 'var(--pink)' }} />
+          <span style={{
+            width: '6px', height: '6px', borderRadius: '50%',
+            background: 'var(--pink)', display: 'inline-block'
+          }} />
           Automatise tes TikToks
         </div>
 
-        {/* Title */}
         <h1 className="fade-up-1" style={{
           fontFamily: 'var(--font-display)',
           fontSize: 'clamp(42px, 8vw, 72px)',
@@ -74,24 +63,37 @@ export default function Home() {
           </span>
         </h1>
 
-        {/* Subtitle */}
         <p className="fade-up-2" style={{
           fontSize: '17px', color: 'var(--text2)',
           lineHeight: '1.7', marginBottom: '44px',
           fontWeight: '300'
         }}>
-          Planifie tes vidéos TikTok, suis tes statistiques et publie automatiquement à l'heure exacte que tu choisis.
+          Planifie tes vidéos TikTok, suis tes statistiques
+          et publie automatiquement à l'heure exacte.
         </p>
 
-        {/* CTA */}
-        <div className="fade-up-3" style={{ display: 'flex', gap: '14px', justifyContent: 'center', flexWrap: 'wrap' }}>
-          <button className="btn btn-primary" onClick={handleLogin} style={{ fontSize: '16px', padding: '14px 32px' }}>
+        <div className="fade-up-3">
+          <a
+            href="/auth/login"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '10px',
+              background: 'linear-gradient(135deg, var(--pink), #ff6b6b)',
+              color: 'white',
+              padding: '14px 32px',
+              borderRadius: '10px',
+              fontSize: '16px',
+              fontWeight: '600',
+              textDecoration: 'none',
+              boxShadow: '0 4px 20px rgba(255,45,85,0.3)'
+            }}
+          >
             <span>▶</span>
             Connecter TikTok
-          </button>
+          </a>
         </div>
 
-        {/* Features */}
         <div className="fade-up-4" style={{
           display: 'flex', gap: '32px', justifyContent: 'center',
           marginTop: '64px', flexWrap: 'wrap'
