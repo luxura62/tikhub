@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const path = require('path');
 const { pool, initDB } = require('./db');
 const { router: authRouter } = require('./routes/auth');
@@ -14,27 +15,34 @@ const PORT = process.env.PORT || 8080;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cors({ origin: process.env.FRONTEND_URL, credentials: true }));
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'dev-secret',
-  resave: false,
-  saveUninitialized: false,
-  cookie: { secure: true, httpOnly: true, maxAge: 86400000, sameSite: 'lax' }
+app.use(cookieParser());
+app.use(cors({
+  origin: process.env.FRONTEND_URL,
+  credentials: true
 }));
 
 app.use('/auth', authRouter);
 app.use('/api/stats', statsRouter);
 app.use('/api/posts', postsRouter);
-app.get('/health', (req, res) => { res.json({ status: 'ok' }); });
+
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', app: 'tikhub' });
+});
 
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, 'frontend/build')));
-  app.get('*', (req, res) => { res.sendFile(path.join(__dirname, 'frontend/build', 'index.html')); });
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'frontend/build', 'index.html'));
+  });
 }
 
 async function start() {
   await initDB();
   startScheduler();
-  app.listen(PORT, () => { console.log('TikHub port ' + PORT); });
+  app.listen(PORT, () => {
+    console.log('TikHub port ' + PORT);
+    console.log('Environnement : ' + (process.env.NODE_ENV || 'development'));
+  });
 }
+
 start();
