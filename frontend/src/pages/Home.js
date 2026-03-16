@@ -2,8 +2,14 @@ import React from 'react';
 
 export default function Home() {
   const handleLogin = () => {
-    window.location.href = '/auth/login';
-  };
+  // En dev, on pointe vers le port 8080 du serveur
+  // En prod, une URL relative '/auth/login' suffira si c'est le même domaine
+  const backendUrl = process.env.NODE_ENV === 'production' 
+    ? '/auth/login' 
+    : 'http://localhost:8080/auth/login';
+    
+  window.location.href = backendUrl;
+};
 
   return (
     <div style={{
