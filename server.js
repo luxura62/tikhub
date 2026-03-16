@@ -1,7 +1,7 @@
 const express = require('express');
 const axios = require('axios');
 const jwt = require('jsonwebtoken');
-const { pool } = require('../db');
+const { pool } = require('/db');
 
 const router = express.Router();
 const JWT_SECRET = process.env.SESSION_SECRET || 'dev-secret';
