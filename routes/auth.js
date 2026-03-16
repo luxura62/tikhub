@@ -16,7 +16,8 @@ router.get('/login', (req, res) => {
           client_key: process.env.TIKTOK_CLIENT_KEY,
               response_type: 'code',
                   scope: 'user.info.basic,video.upload,video.publish,user.info.profile,user.info.stats,video.list'
-redirect_uri: process.env.URI_REDIRECT,
+redirect_uri:
+process.env.URI_REDIRECT,
                           state: state
                             });
 
