@@ -9,10 +9,8 @@ const { router: authRouter } = require('./routes/auth');
 const statsRouter = require('./routes/stats');
 const postsRouter = require('./routes/posts');
 const { startScheduler } = require('./jobs/scheduler');
-
 const app = express();
 const PORT = process.env.PORT || 8080;
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors({
@@ -36,14 +34,6 @@ app.use(cors({
                                           }
                                           }));
 
-                                          app.use('/auth', authRouter);
-                                          app.use('/api/stats', statsRouter);
-                                          app.use('/api/posts', postsRouter);
-
-                                          app.get('/health', (req, res) => {
-                                            res.json({ status: 'ok', app: 'tikhub' });
-                                            });
-
                                             if (process.env.NODE_ENV === 'production') {
                                               app.use(express.static(path.join(__dirname, 'frontend/build')));
                                                 app.get('*', (req, res) => {
@@ -61,3 +51,4 @@ app.use(cors({
                                                                       }
 
                                                                       start();
+
