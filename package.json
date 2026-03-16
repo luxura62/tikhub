@@ -1,5 +1,5 @@
 {
-      "name": "tikhub",
+       "name": "tikhub",
         "version": "1.0.0",
           "description": "Planification et statistiques TikTok automatiques",
             "main": "server.js",
