@@ -36,7 +36,8 @@ router.get('/login', (req, res) => {
                                             }
 
                                               try {
-                                                  // Échange du code contre un access_token
+                                                  
+                                             // Échange du code contre un access_token
                                                       const tokenResponse = await axios.post('https://open.tiktokapis.com/v2/oauth/token/', {
                                                             client_key: process.env.TIKTOK_CLIENT_KEY,
                                                                   client_secret: process.env.TIKTOK_CLIENT_SECRET,
@@ -44,7 +45,7 @@ router.get('/login', (req, res) => {
                                                                               grant_type: 'authorization_code',
                                                                                     redirect_uri: process.env.URI_REDIRECT
                                                                                         }, {
-                                                                                              headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+                                                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
                                                                                                   });
 
                                                                                                       const { access_token, refresh_token, expires_in, open_id } = tokenResponse.data;
