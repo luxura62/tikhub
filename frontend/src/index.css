@@ -756,3 +756,10 @@ body::after {
   .stat-value { font-size: 22px; }
   .main-content { padding: 16px 14px; padding-top: 68px; }
 }
+
+/* ─── DASHBOARD GRID RESPONSIVE ─── */
+@media (max-width: 900px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
