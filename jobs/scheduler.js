@@ -130,7 +130,7 @@ function startScheduler() {
                     );
                     console.log(`✅ Post ${post.id} publié !`);
                 } catch (err) {
-                    console.error(`❌ Échec post ${post.id}:`, err.message);
+                    console.error(`❌ Échec post ${post.id}:`, err.message, err.response?.data);
                     await pool.query(
                         "UPDATE scheduled_posts SET status = 'failed', error_message = $1 WHERE id = $2",
                         [err.message, post.id]
