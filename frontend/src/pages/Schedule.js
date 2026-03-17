@@ -517,6 +517,7 @@ export default function Schedule() {
     </div>
   );
 }
+WEEKLY_SLOTS = [
   { day: 'Lundi',    slots: ['06:00', '10:00', '22:00'] },
   { day: 'Mardi',    slots: ['09:00', '12:00', '21:00'] },
   { day: 'Mercredi', slots: ['07:00', '11:00', '19:00'] },
