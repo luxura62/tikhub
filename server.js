@@ -7,6 +7,7 @@ const { pool, initDB } = require('./db');
 const { router: authRouter } = require('./routes/auth');
 const statsRouter = require('./routes/stats');
 const postsRouter = require('./routes/posts');
+app.use('/api/stats', statsRouter);
 const { startScheduler } = require('./jobs/scheduler');
 const app = express();
 const PORT = process.env.PORT || 3000;
