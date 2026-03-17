@@ -9,7 +9,7 @@ const router = express.Router();
 // GET /api/stats — Récupère les statistiques du compte
 // ─────────────────────────────────────────────
 router.get('/', requireAuth, async (req, res) => {
-  const userId = req.session.user.id;
+  const userId = req.user.id; // requireAuth a déjà rempli req.user
 
     try {
         // Récupération du token depuis la DB
