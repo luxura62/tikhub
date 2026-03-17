@@ -1,25 +1,41 @@
-const BEST_SLOTS = [/* Your best slots data here */];
+import React, { useState } from 'react';
 
-function getNextBestSlots() {
-    // Implementation for retrieving next best slots
-}
+const BEST_SLOTS = [
+    // Define the best slots here
+];
 
-function Schedule() {
+const getNextBestSlots = () => {
+    // Function logic to get the next best slots
+};
+
+const Schedule = () => {
+    const [step, setStep] = useState(1);
+    const [slots, setSlots] = useState([]);
+
+    const handleUpload = (event) => {
+        // Handle file upload
+    };
+
     return (
         <div>
-            <div className="step-indicator">/* Step Indicator Markup */</div>
-            <div className="upload-zone">/* Upload Zone Markup */</div>
+            <h1>Schedule</h1>
+            <div>Step: {step}</div>
+            <div>
+                <input type='file' onChange={handleUpload} />
+            </div>
             <form>
-                <select name="bestSlots">
-                    {BEST_SLOTS.map(slot => <option key={slot} value={slot}>{slot}</option>)}
-                </select>
-                <button type="submit">Submit</button>
+                <input type='text' placeholder='Your Field 1' />
+                <input type='text' placeholder='Your Field 2' />
+                {/* More form fields as necessary */}
             </form>
-            <div className="preview">
-                <img src="mockup-tiktok.png" alt="TikTok Mockup" />
+            <div>
+                <h2>Preview</h2>
+                {/* TikTok mockup can be added here */}
+                <div>Summary of selected slots:</div>
+                <div>{slots.join(', ')}</div>
             </div>
         </div>
     );
-}
+};
 
 export default Schedule;
