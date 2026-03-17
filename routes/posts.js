@@ -81,7 +81,11 @@ const storage = multer.diskStorage({
                                                                                                                                                                               // GET /api/posts — Liste des posts planifiés
                                                                                                                                                                               // ─────────────────────────────────────────────
                                                                                                                                                                               router.get('/', requireAuth, async (req, res) => {
-                                                                                                                                                                                const userId = req.session.user.id;
+                                                                                                                                                                                if (!req.session || !req.session.user) {
+    return res.status(401).json({ message: "Vous devez être connecté pour effectuer cette action." });
+}
+
+const userId = req.session.user.id;
                                                                                                                                                                                   const { status } = req.query;
 
                                                                                                                                                                                     try {
