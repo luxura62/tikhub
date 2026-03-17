@@ -6,7 +6,7 @@ import Dashboard from './pages/Dashboard';
 import Schedule from './pages/Schedule';
 import Posts from './pages/Posts';
 import Layout from './components/Layout';
-
+import Captions from './pages/Captions';
 export const AuthContext = createContext(null);
 export const useAuth = () => useContext(AuthContext);
 
@@ -40,6 +40,7 @@ export default function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/schedule" element={<Schedule />} />
             <Route path="/posts" element={<Posts />} />
+<Route path="/captions" element={<Captions />} />
           </Route>
         </Routes>
       </BrowserRouter>
