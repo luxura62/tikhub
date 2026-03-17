@@ -17,6 +17,8 @@ async function publishToTikTok(post, accessToken) {
             const videoBuffer = fs.readFileSync(videoPath);
               const videoSize = fs.statSync(videoPath).size;
 
+console.log ('taille', videoSize)
+
                 // Étape 1 : Initialisation de l'upload
                   const initResponse = await axios.post(
                       'https://open.tiktokapis.com/v2/post/publish/video/init/',
