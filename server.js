@@ -10,6 +10,11 @@ const postsRouter = require('./routes/posts');
 const { startScheduler } = require('./jobs/scheduler');
 const app = express();
 const PORT = process.env.PORT || 8080;
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Serveur TikHub en ligne sur le port ${PORT}`);
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
