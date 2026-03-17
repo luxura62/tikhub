@@ -23,10 +23,18 @@ if (process.env.NODE_ENV === 'production') {
   app.get('*', (req, res) => { res.sendFile(path.join(__dirname, 'frontend/build', 'index.html')); });
 }
 async function start() {
-  await initDB();
-  startScheduler();
-  app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Serveur TikHub actif sur le port ${PORT}`);
-});
+  try {
+    await initDB();
+    startScheduler();
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`🚀 Serveur TikHub actif sur le port ${PORT}`);
+    });
+  } catch (err) {
+    console.error("Erreur au démarrage :", err);
+  }
+}
+
+start();
+
 
 start();
