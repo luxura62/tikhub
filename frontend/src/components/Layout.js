@@ -33,6 +33,7 @@ export default function Layout() {
     { to: '/dashboard', icon: '⚡', label: 'Dashboard' },
     { to: '/schedule', icon: '✦', label: 'Planifier' },
     { to: '/posts', icon: '◈', label: 'Mes posts' },
+    { to: '/captions', icon: '📝', label: 'Bibliothèque' },
   ];
 
   const closeMenu = () => setMenuOpen(false);
