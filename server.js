@@ -10,11 +10,6 @@ const postsRouter = require('./routes/posts');
 const { startScheduler } = require('./jobs/scheduler');
 const app = express();
 const PORT = process.env.PORT || 8080;
-
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Serveur TikHub en ligne sur le port ${PORT}`);
-});
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -30,6 +25,8 @@ if (process.env.NODE_ENV === 'production') {
 async function start() {
   await initDB();
   startScheduler();
-  app.listen(PORT, () => { console.log('TikHub port ' + PORT); });
-}
+  app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Serveur TikHub actif sur le port ${PORT}`);
+});
+
 start();
